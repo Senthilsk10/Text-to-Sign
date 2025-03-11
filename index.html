@@ -631,7 +631,7 @@
             let sentence = document.getElementById('sign-text').value;
             let actions = glossMap(sentence); 
             actions.forEach(a=>{
-                urls.push(`${host}/landmarks/${a}.json`)
+                urls.push(`https://raw.githubusercontent.com/Senthilsk10/Text-to-Sign/refs/heads/main/landmarks/${a}.json`)
             })
             console.log(urls);
             loadButton.click();
