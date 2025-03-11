@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediaPipe Holistic Sequential Video Visualization</title>
+    <script src="gloss.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        canvas {
+            background-color: #000;
+            margin: 0 auto;
+            display: block;
+            border-radius: 5px;
+        }
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #3367d6;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .url-input {
+            margin: 10px 0;
+            width: 100%;
+        }
+        .url-group {
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .url-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .url-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .progress {
+            width: 100%;
+            height: 20px;
+            background-color: #e0e0e0;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            border-radius: 5px;
+            width: 0%;
+            background-color: #4285f4;
+            transition: width 0.3s;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .status.loading {
+            background-color: #fff8e1;
+            color: #856404;
+        }
+        .status.success {
+            background-color: #e8f5e9;
+            color: #155724;
+        }
+        .status.error {
+            background-color: #ffebee;
+            color: #721c24;
+        }
+        .video-info {
+            text-align: center;
+            margin: 10px 0;
+            font-weight: bold;
+            color: #4285f4;
+        }
+        .settings {
+            background-color: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .settings h3 {
+            margin-top: 0;
+            color: #4285f4;
+        }
+        .setting-group {
+            margin-bottom: 15px;
+        }
+        .setting-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .setting-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .setting-value {
+            font-weight: bold;
+            min-width: 30px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>MediaPipe Holistic Sequential Video Visualization</h1>
+        
+
+        <div>
+            <input type="text" id="sign-text">
+            <button onclick="getLink()">Convert</button> 
+        </div>
+
+        <div style="display: none;">
+            <div id="urlInputs">
+                <h2>Video Sources (JSON URLs)</h2>
+            
+                <div class="url-group">
+                    <label for="url1">Video 1 JSON URL:</label>
+                    <input type="text" id="url1" class="url-input" placeholder="https://example.com/video1-landmarks.json">
+                </div>
+            
+                <div class="url-group">
+                    <label for="url2">Video 2 JSON URL:</label>
+                    <input type="text" id="url2" class="url-input" placeholder="https://example.com/video2-landmarks.json">
+                </div>
+            
+                <div class="url-group">
+                    <label for="url3">Video 3 JSON URL:</label>
+                    <input type="text" id="url3" class="url-input" placeholder="https://example.com/video3-landmarks.json">
+                </div>
+            
+                <button id="loadButton">Load Videos</button>
+            </div>
+            
+            <div class="settings">
+                <h3>Visualization Settings</h3>
+            
+                <div class="setting-group">
+                    <label for="playbackSpeed">Playback Speed:</label>
+                    <div class="setting-row">
+                        <input type="range" id="playbackSpeed" min="0.1" max="2" step="0.1" value="0.5">
+                        <span class="setting-value" id="speedValue">1x</span>
+                    </div>
+                </div>
+            
+                <div class="setting-group">
+                    <label for="lineThickness">Line Thickness:</label>
+                    <div class="setting-row">
+                        <input type="range" id="lineThickness" min="1" max="10" step="1" value="2">
+                        <span class="setting-value" id="thicknessValue">2px</span>
+                    </div>
+                </div>
+            
+                <div class="setting-group">
+                    <label for="pointSize">Point Size:</label>
+                    <div class="setting-row">
+                        <input type="range" id="pointSize" min="1" max="10" step="1" value="2">
+                        <span class="setting-value" id="pointSizeValue">5px</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="statusMessage" class="status"></div>
+            
+            <div class="progress">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+        </div>
+        
+        <div id="videoInfo" class="video-info"></div>
+        
+        <canvas id="outputCanvas" width="400" height="400"></canvas>
+        
+        <div class="controls">
+            <button id="playButton" disabled>Play</button>
+            <button id="pauseButton" disabled>Pause</button>
+            <button id="resetButton" disabled>Reset</button>
+            <button id="nextButton" disabled>Next Video</button>
+        </div>
+    </div>
+
+    <script>
+        // DOM elements
+        const urlInputs = [
+            document.getElementById('url1'),
+            document.getElementById('url2'),
+            document.getElementById('url3')
+        ];
+
+        const loadButton = document.getElementById('loadButton');
+        const canvas = document.getElementById('outputCanvas');
+        const ctx = canvas.getContext('2d');
+        const playButton = document.getElementById('playButton');
+        const pauseButton = document.getElementById('pauseButton');
+        const resetButton = document.getElementById('resetButton');
+        const nextButton = document.getElementById('nextButton');
+        const progressBar = document.getElementById('progressBar');
+        const statusMessage = document.getElementById('statusMessage');
+        const videoInfo = document.getElementById('videoInfo');
+        
+        // Settings elements
+        const playbackSpeedSlider = document.getElementById('playbackSpeed');
+        const speedValue = document.getElementById('speedValue');
+        const lineThicknessSlider = document.getElementById('lineThickness');
+        const thicknessValue = document.getElementById('thicknessValue');
+        const pointSizeSlider = document.getElementById('pointSize');
+        const pointSizeValue = document.getElementById('pointSizeValue');
+        
+        // Visualization settings
+        let playbackSpeed = parseFloat(playbackSpeedSlider.value);
+        let lineThickness = parseInt(lineThicknessSlider.value);
+        let pointSize = parseInt(pointSizeSlider.value);
+        
+        // Animation state
+        let urls = [];
+        let videoData = [];
+        let currentFrame = 0;
+        let currentVideoIndex = 0;
+        let animationId = null;
+        let isPlaying = false;
+        let lastFrameTime = 0;
+        let frameInterval = 0; // Will be calculated based on FPS and playback speed
+        
+        // Settings change event listeners
+        playbackSpeedSlider.addEventListener('input', () => {
+            playbackSpeed = parseFloat(playbackSpeedSlider.value);
+            speedValue.textContent = playbackSpeed.toFixed(1) + 'x';
+        });
+        
+        lineThicknessSlider.addEventListener('input', () => {
+            lineThickness = parseInt(lineThicknessSlider.value);
+            thicknessValue.textContent = lineThickness + 'px';
+        });
+        
+        pointSizeSlider.addEventListener('input', () => {
+            pointSize = parseInt(pointSizeSlider.value);
+            pointSizeValue.textContent = pointSize + 'px';
+        });
+        
+        // Define connection styles
+        const poseConnections = [
+            // Torso
+            [11, 12], [12, 24], [24, 23], [23, 11],
+            // Face
+            [0, 1], [1, 2], [2, 3], [3, 7], [0, 4], [4, 5], [5, 6], [6, 8],
+            // Arms
+            [11, 13], [13, 15], [12, 14], [14, 16],
+            // Legs
+            [23, 25], [25, 27], [24, 26], [26, 28]
+        ];
+        
+        const handConnections = [
+            // Palm
+            [0, 1], [0, 5], [0, 17], [1, 2], [2, 3], [3, 4],
+            [5, 6], [6, 7], [7, 8], [9, 10], [10, 11], [11, 12],
+            [13, 14], [14, 15], [15, 16], [17, 18], [18, 19], [19, 20],
+            [0, 5], [5, 9], [9, 13], [13, 17], [0, 17]
+        ];
+        
+        // Load landmarks from JSON URLs
+        loadButton.addEventListener('click', async () => {
+            // Reset previous data
+            videoData = [];
+            resetAnimation();
+            
+            // // Get non-empty URLs
+            // const urls = urlInputs
+            //     .map(input => input.value.trim())
+            //     .filter(url => url.length > 0);
+            //   change it get urls from backend or Gloss Processing - here instead get 'urls' var from convert buttn click function
+            
+            
+            if (urls.length === 0) {
+                showStatus('Please enter at least one valid URL', 'error');
+                return;
+            }
+            
+            showStatus('Loading data from URLs...', 'loading');
+            
+            try {
+                // Load data from all URLs
+                for (let i = 0; i < urls.length; i++) {
+                    const url = urls[i];
+                    showStatus(`Loading video ${i+1} from ${url}...`, 'loading');
+                    
+                    try {
+                        const response = await fetch(url);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        
+                        const data = await response.json();
+                        videoData.push({
+                            index: i,
+                            data: data,
+                            color: getVideoColor(i),
+                            name: `Video ${i+1}`
+                        });
+                        
+                        showStatus(`Video ${i+1} loaded successfully!`, 'success');
+                    } catch (error) {
+                        console.error(`Error loading URL ${url}:`, error);
+                        showStatus(`Error loading video ${i+1}: ${error.message}`, 'error');
+                    }
+                }
+                
+                if (videoData.length > 0) {
+                    showStatus(`${videoData.length} videos loaded successfully!`, 'success');
+                    
+                    // Enable control buttons
+                    playButton.disabled = false;
+                    pauseButton.disabled = false;
+                    resetButton.disabled = false;
+                    nextButton.disabled = false;
+                    
+                    // Set canvas size based on the first video's metadata
+                    const firstVideo = videoData[0];
+                    if (firstVideo.data.metadata) {
+                        canvas.width = firstVideo.data.metadata.width;
+                        canvas.height = firstVideo.data.metadata.height;
+                    }
+                    
+                    // Update video info
+                    updateVideoInfo();
+                } else {
+                    showStatus('No videos could be loaded. Please check URLs and try again.', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading videos:', error);
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        });
+        
+        // Animation controls
+        playButton.addEventListener('click', () => {
+            if (videoData.length === 0) return;
+            if (!isPlaying) {
+                isPlaying = true;
+                lastFrameTime = performance.now();
+                
+                // Calculate frame interval based on the current video's FPS and playback speed
+                if (videoData.length > 0) {
+                    const currentVideo = videoData[currentVideoIndex];
+                    const fps = currentVideo.data.metadata.fps || 30; // Default to 30 FPS if not specified
+                    frameInterval = (1000 / fps) / playbackSpeed;
+                }
+                
+                animate(performance.now());
+            }
+        });
+        
+        pauseButton.addEventListener('click', () => {
+            isPlaying = false;
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+        });
+        
+        resetButton.addEventListener('click', () => {
+            resetAnimation();
+        });
+        
+        nextButton.addEventListener('click', () => {
+            moveToNextVideo();
+        });
+        
+        function resetAnimation() {
+            isPlaying = false;
+            currentFrame = 0;
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            clearCanvas();
+            updateProgressBar();
+        }
+        
+        function moveToNextVideo() {
+            currentFrame = 0;
+            currentVideoIndex = (currentVideoIndex + 1) % videoData.length;
+            updateVideoInfo();
+            clearCanvas();
+            updateProgressBar();
+            
+            // Calculate new frame interval based on the new video's FPS and playback speed
+            if (videoData.length > 0) {
+                const currentVideo = videoData[currentVideoIndex];
+                const fps = currentVideo.data.metadata.fps || 30; // Default to 30 FPS if not specified
+                frameInterval = (1000 / fps) / playbackSpeed;
+            }
+            
+            // If playing, continue with the next video
+            if (isPlaying) {
+                lastFrameTime = performance.now();
+                animate(performance.now());
+            }
+        }
+        
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        function updateProgressBar() {
+            if (videoData.length === 0) return;
+            
+            const currentVideo = videoData[currentVideoIndex];
+            const maxFrames = currentVideo.data.metadata.frame_count;
+            
+            const progress = (currentFrame / maxFrames) * 100;
+            progressBar.style.width = `${progress}%`;
+        }
+        
+        function updateVideoInfo() {
+            if (videoData.length === 0) {
+                videoInfo.textContent = "";
+                return;
+            }
+            
+            const currentVideo = videoData[currentVideoIndex];
+            videoInfo.textContent = `Now showing: ${currentVideo.name} (${currentVideoIndex + 1} of ${videoData.length})`;
+        }
+        
+        function showStatus(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = `status ${type}`;
+        }
+        
+        function getVideoColor(index) {
+            // Different color schemes for each video
+            const colors = [
+                { pose: 'rgba(0, 255, 0, 0.8)', face: 'rgba(255, 255, 0, 0.6)', 
+                  leftHand: 'rgba(255, 0, 0, 0.8)', rightHand: 'rgba(0, 0, 255, 0.8)' },
+                { pose: 'rgba(255, 165, 0, 0.8)', face: 'rgba(255, 192, 203, 0.6)', 
+                  leftHand: 'rgba(0, 255, 255, 0.8)', rightHand: 'rgba(128, 0, 128, 0.8)' },
+                { pose: 'rgba(255, 0, 255, 0.8)', face: 'rgba(173, 216, 230, 0.6)', 
+                  leftHand: 'rgba(144, 238, 144, 0.8)', rightHand: 'rgba(255, 215, 0, 0.8)' }
+            ];
+            
+            return colors[index % colors.length];
+        }
+        
+        function animate(timestamp) {
+            if (!isPlaying || videoData.length === 0) return;
+            
+            // Calculate time elapsed since last frame
+            const elapsed = timestamp - lastFrameTime;
+            
+            // Only draw a new frame if enough time has passed
+            if (elapsed >= frameInterval) {
+                clearCanvas();
+                
+                // Get current video data
+                const video = videoData[currentVideoIndex];
+                
+                // Draw the current frame of the current video
+                drawVideoFrame(video, currentFrame);
+                
+                // Update frame counter
+                currentFrame++;
+                updateProgressBar();
+                
+                // Update last frame time
+                lastFrameTime = timestamp;
+                
+                // Check if current video is finished
+                const maxFrames = video.data.metadata.frame_count;
+                if (currentFrame >= maxFrames) {
+                    // Move to next video
+                    moveToNextVideo();
+                }
+            }
+            
+            // Continue animation
+            animationId = requestAnimationFrame(animate);
+        }
+        
+        function drawVideoFrame(video, frameNum) {
+            const data = video.data;
+            const colors = video.color;
+            
+            // Scale factor to fit canvas
+            const scaleX = canvas.width / data.metadata.width;
+            const scaleY = canvas.height / data.metadata.height;
+            
+            // Find pose landmarks for current frame
+            const poseFrame = data.pose.find(frame => frame.frame === frameNum);
+            const faceFrame = data.face.find(frame => frame.frame === frameNum);
+            const leftHandFrame = data.left_hand.find(frame => frame.frame === frameNum);
+            const rightHandFrame = data.right_hand.find(frame => frame.frame === frameNum);
+            
+            // Draw pose landmarks if available
+            if (poseFrame && poseFrame.landmarks) {
+                drawPoseLandmarks(poseFrame.landmarks, colors.pose, 0, 0, scaleX, scaleY, data.metadata);
+            }
+            
+            // Draw face landmarks if available
+            if (faceFrame && faceFrame.landmarks) {
+                drawFaceLandmarks(faceFrame.landmarks, colors.face, 0, 0, scaleX, scaleY, data.metadata);
+            }
+            
+            // Draw hand landmarks if available
+            if (leftHandFrame && leftHandFrame.landmarks) {
+                drawHandLandmarks(leftHandFrame.landmarks, colors.leftHand, 0, 0, scaleX, scaleY, data.metadata);
+            }
+            
+            if (rightHandFrame && rightHandFrame.landmarks) {
+                drawHandLandmarks(rightHandFrame.landmarks, colors.rightHand, 0, 0, scaleX, scaleY, data.metadata);
+            }
+        }
+        
+        function drawPoseLandmarks(landmarks, color, offsetX, offsetY, scaleX, scaleY, metadata) {
+            // Draw landmarks
+            landmarks.forEach((landmark, index) => {
+                const x = offsetX + (landmark.x * scaleX * metadata.width);
+                const y = offsetY + (landmark.y * scaleY * metadata.height);
+                
+                ctx.beginPath();
+                ctx.arc(x, y, pointSize, 0, 2 * Math.PI);
+                ctx.fillStyle = color;
+                ctx.fill();
+            });
+            
+            // Draw connections
+            ctx.strokeStyle = color.replace('0.8', '0.6');
+            ctx.lineWidth = lineThickness;
+            
+            poseConnections.forEach(connection => {
+                const start = landmarks[connection[0]];
+                const end = landmarks[connection[1]];
+                
+                if (start && end) {
+                    ctx.beginPath();
+                    ctx.moveTo(
+                        offsetX + (start.x * scaleX * metadata.width), 
+                        offsetY + (start.y * scaleY * metadata.height)
+                    );
+                    ctx.lineTo(
+                        offsetX + (end.x * scaleX * metadata.width), 
+                        offsetY + (end.y * scaleY * metadata.height)
+                    );
+                    ctx.stroke();
+                }
+            });
+        }
+        
+        function drawHandLandmarks(landmarks, color, offsetX, offsetY, scaleX, scaleY, metadata) {
+            // Draw landmarks
+            landmarks.forEach((landmark, index) => {
+                const x = offsetX + (landmark.x * scaleX * metadata.width);
+                const y = offsetY + (landmark.y * scaleY * metadata.height);
+                
+                ctx.beginPath();
+                ctx.arc(x, y, pointSize * 0.6, 0, 2 * Math.PI);
+                ctx.fillStyle = color;
+                ctx.fill();
+            });
+            
+            // Draw connections
+            ctx.strokeStyle = color.replace('0.8', '0.6');
+            ctx.lineWidth = lineThickness;
+            
+            handConnections.forEach(connection => {
+                const start = landmarks[connection[0]];
+                const end = landmarks[connection[1]];
+                
+                if (start && end) {
+                    ctx.beginPath();
+                    ctx.moveTo(
+                        offsetX + (start.x * scaleX * metadata.width), 
+                        offsetY + (start.y * scaleY * metadata.height)
+                    );
+                    ctx.lineTo(
+                        offsetX + (end.x * scaleX * metadata.width), 
+                        offsetY + (end.y * scaleY * metadata.height)
+                    );
+                    ctx.stroke();
+                }
+            });
+        }
+        
+        function drawFaceLandmarks(landmarks, color, offsetX, offsetY, scaleX, scaleY, metadata) {
+            // Draw landmarks (just a subset to avoid clutter)
+            for (let i = 0; i < landmarks.length; i += 5) {
+                const landmark = landmarks[i];
+                const x = offsetX + (landmark.x * scaleX * metadata.width);
+                const y = offsetY + (landmark.y * scaleY * metadata.height);
+                
+                ctx.beginPath();
+                ctx.arc(x, y, pointSize * 0.2, 0, 2 * Math.PI);
+                ctx.fillStyle = color;
+                ctx.fill();
+            }
+        }
+
+        function getLink(){
+            urls = [];
+            // let links = ["http://127.0.0.1:5500/accident.json","http://127.0.0.1:5500/before.json","http://127.0.0.1:5500/all.json"]
+            // links.forEach(e=>urls.push(e));
+            let sentence = document.getElementById('sign-text').value;
+            let actions = glossMap(sentence); 
+            actions.forEach(a=>{
+                urls.push(`http://127.0.0.1:5500/landmarks/${a}.json`)
+            })
+            console.log(urls);
+            loadButton.click();
+        }
+    </script>
+</body>
+</html>
