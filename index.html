@@ -236,6 +236,7 @@
         const pointSizeSlider = document.getElementById('pointSize');
         const pointSizeValue = document.getElementById('pointSizeValue');
         
+        const host = window.location.origin;
         // Visualization settings
         let playbackSpeed = parseFloat(playbackSpeedSlider.value);
         let lineThickness = parseInt(lineThicknessSlider.value);
@@ -630,7 +631,7 @@
             let sentence = document.getElementById('sign-text').value;
             let actions = glossMap(sentence); 
             actions.forEach(a=>{
-                urls.push(`http://127.0.0.1:5500/landmarks/${a}.json`)
+                urls.push(`${host}/landmarks/${a}.json`)
             })
             console.log(urls);
             loadButton.click();
